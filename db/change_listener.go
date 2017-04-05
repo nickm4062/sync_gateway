@@ -44,6 +44,9 @@ func (listener *changeListener) Start(bucket base.Bucket, trackDocs bool, bucket
 		Backfill: sgbucket.TapNoBackfill,
 		Notify:   bucketStateNotify,
 	}
+
+
+
 	tapFeed, err := bucket.StartTapFeed(listener.TapArgs)
 	if err != nil {
 		return err

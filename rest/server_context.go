@@ -348,11 +348,20 @@ func (sc *ServerContext) _getOrAddDatabaseFromConfig(config *DbConfig, useExisti
 
 	}
 
+	// TODO: if was func(bucket CBBucket), we would call correct bucket
 	bucket, err := db.ConnectToBucket(spec, func(bucket string, err error) {
-		base.Warn("Lost TAP feed for bucket %s, with error: %v", bucket, err)
+
+		// TODO: document the fact that gocb will never get into this state.  We only use go-couchbase for dcp
+
+
+		msg := fmt.Sprintf("%v lost Mutation (TAP/DCP) feed due to error: %v, taking offline", bucket, err)
+
+		base.Warn(msg)
+
 
 		if dc := sc.databases_[dbName]; dc != nil {
-			err := dc.TakeDbOffline("Lost TAP feed")
+
+			err := dc.TakeDbOffline(msg)
 			if err == nil {
 
 				//start a retry loop to pick up tap feed again backing off double the delay each time
@@ -477,7 +486,14 @@ func (sc *ServerContext) _getOrAddDatabaseFromConfig(config *DbConfig, useExisti
 		OIDCOptions:           config.OIDCConfig,
 	}
 
-	dbcontext, err := db.NewDatabaseContext(dbName, bucket, autoImport, contextOptions)
+	// Create a callback function that will be invoked if the database goes offline and comes
+	// back online again
+	dbOnlineCallback := func(dbContext *db.DatabaseContext) {
+		sc.TakeDbOnline(dbContext)
+	}
+
+	// Create the DB Context
+	dbcontext, err := db.NewDatabaseContext(dbName, bucket, autoImport, contextOptions, dbOnlineCallback)
 	if err != nil {
 		return nil, err
 	}

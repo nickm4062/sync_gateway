@@ -34,7 +34,7 @@ const (
 const (
 	GoCouchbase CouchbaseDriver = iota
 	GoCB
-	GoCBGoCouchbaseHybrid // Defaults to GoCB, falls back to GoCouchbase for missing functionality
+	GoCBCustomSGTranscoder
 )
 
 const (
@@ -42,9 +42,27 @@ const (
 	IndexBucket
 )
 
+const (
+	ViewQueryParamStale         = "stale"
+	ViewQueryParamReduce        = "reduce"
+	ViewQueryParamStartKey      = "startkey"
+	ViewQueryParamEndKey        = "endkey"
+	ViewQueryParamInclusiveEnd  = "inclusive_end"
+	ViewQueryParamLimit         = "limit"
+	ViewQueryParamIncludeDocs   = "include_docs"
+	ViewQueryParamDescending    = "descending"
+	ViewQueryParamGroup         = "group"
+	ViewQueryParamSkip          = "skip"
+	ViewQueryParamGroupLevel    = "group_level"
+	ViewQueryParamStartKeyDocId = "startkey_docid"
+	ViewQueryParamEndKeyDocId   = "endkey_docid"
+	ViewQueryParamKey           = "key"
+	ViewQueryParamKeys          = "keys"
+)
+
 var (
 	DefaultDriverForBucketType = map[CouchbaseBucketType]CouchbaseDriver{
-		DataBucket: GoCBGoCouchbaseHybrid,
+		DataBucket: GoCBCustomSGTranscoder,
 		// DataBucket:  GoCouchbase,
 		IndexBucket: GoCB,
 	}
@@ -56,8 +74,8 @@ func (couchbaseDriver CouchbaseDriver) String() string {
 		return "GoCouchbase"
 	case GoCB:
 		return "GoCB"
-	case GoCBGoCouchbaseHybrid:
-		return "GoCBGoCouchbaseHybrid"
+	case GoCBCustomSGTranscoder:
+		return "GoCBCustomSGTranscoder"
 	default:
 		return "UnknownCouchbaseDriver"
 	}
@@ -69,9 +87,11 @@ func init() {
 	gomemcached.MaxBodyLen = int(20 * 1024 * 1024)
 }
 
+// TODO: unalias these and just pass around sgbucket.X everywhere
 type Bucket sgbucket.Bucket
 type TapArguments sgbucket.TapArguments
 type TapFeed sgbucket.TapFeed
+
 type AuthHandler couchbase.AuthHandler
 type CouchbaseDriver int
 type CouchbaseBucketType int
@@ -203,11 +223,12 @@ func (bucket CouchbaseBucket) View(ddoc, name string, params map[string]interfac
 	return vres, err
 }
 
-// Todo: change to StartMutationFeed?  (to be generic over tap/dcp)
+// TODO: change to StartMutationFeed
 func (bucket CouchbaseBucket) StartTapFeed(args sgbucket.TapArguments) (sgbucket.TapFeed, error) {
 
-	// Uses tap by default, unless DCP is explicitly specified
+	// Uses DCP by default, unless TAP is explicitly specified
 	switch bucket.spec.FeedType {
+
 	case TapFeedType:
 		return bucket.StartCouchbaseTapFeed(args)
 
@@ -227,7 +248,7 @@ func (bucket CouchbaseBucket) StartTapFeed(args sgbucket.TapArguments) (sgbucket
 
 	default:
 		LogTo("Feed", "Using DCP feed for bucket: %q (based on feed_type specified in config file", bucket.GetName())
-		return bucket.StartDCPFeed(args)
+		return StartDCP_CBDatasourceFeed(args, bucket.spec, bucket)
 
 	}
 
@@ -263,17 +284,18 @@ func (bucket CouchbaseBucket) StartCouchbaseTapFeed(args sgbucket.TapArguments) 
 	return &tapFeed, nil
 }
 
-// Start cbdatasource-based DCP feed, using DCPReceiver.
-func (bucket CouchbaseBucket) StartDCPFeed(args sgbucket.TapArguments) (sgbucket.TapFeed, error) {
+// This starts a DCP Feed using an entirely separate connection to Couchbase Server than anything the existing
+// bucket is using, and it uses the go-couchbase cbdatasource DCP abstraction layer
+func StartDCP_CBDatasourceFeed(args sgbucket.TapArguments, spec BucketSpec, bucket Bucket) (sgbucket.TapFeed, error) {
 
 	// Recommended usage of cbdatasource is to let it manage it's own dedicated connection, so we're not
 	// reusing the bucket connection we've already established.
-	urls := []string{bucket.spec.Server}
-	poolName := bucket.spec.PoolName
+	urls := []string{spec.Server}
+	poolName := spec.PoolName
 	if poolName == "" {
 		poolName = "default"
 	}
-	bucketName := bucket.spec.BucketName
+	bucketName := spec.BucketName
 
 	vbucketIdsArr := []uint16(nil) // nil means get all the vbuckets.
 
@@ -306,19 +328,19 @@ func (bucket CouchbaseBucket) StartDCPFeed(args sgbucket.TapArguments) (sgbucket
 	dcpReceiver.SeedSeqnos(vbuuids, startSeqnos)
 
 	var dataSourceOptions *cbdatasource.BucketDataSourceOptions
-	if bucket.spec.UseXattrs {
+	if spec.UseXattrs {
 		dataSourceOptions = cbdatasource.DefaultBucketDataSourceOptions
 		dataSourceOptions.IncludeXAttrs = true
 	}
 
-	LogTo("Feed+", "Connecting to new bucket datasource.  URLs:%s, pool:%s, name:%s, auth:%s", urls, poolName, bucketName, bucket.spec.Auth)
+	LogTo("Feed+", "Connecting to new bucket datasource.  URLs:%s, pool:%s, name:%s, auth:%s", urls, poolName, bucketName, spec.Auth)
 	bds, err := cbdatasource.NewBucketDataSource(
 		urls,
 		poolName,
 		bucketName,
 		"",
 		vbucketIdsArr,
-		bucket.spec.Auth,
+		spec.Auth,
 		dcpReceiver,
 		dataSourceOptions,
 	)
@@ -340,6 +362,7 @@ func (bucket CouchbaseBucket) StartDCPFeed(args sgbucket.TapArguments) (sgbucket
 	}()
 
 	return &dcpFeed, nil
+
 }
 
 // Goes out to the bucket and gets the high sequence number for all vbuckets and returns
@@ -352,6 +375,14 @@ func (bucket CouchbaseBucket) GetStatsVbSeqno(maxVbno uint16, useAbsHighSeqNo bo
 		seqErr = errors.New("vbucket-seqno call returned empty map.")
 		return
 	}
+
+	return GetStatsVbSeqno(stats, maxVbno, useAbsHighSeqNo)
+
+
+}
+
+func GetStatsVbSeqno(stats map[string]map[string]string, maxVbno uint16, useAbsHighSeqNo bool) (uuids map[uint16]uint64, highSeqnos map[uint16]uint64, seqErr error) {
+
 
 	// GetStats response is in the form map[serverURI]map[]
 	uuids = make(map[uint16]uint64, maxVbno)
@@ -386,7 +417,9 @@ func (bucket CouchbaseBucket) GetStatsVbSeqno(maxVbno uint16, useAbsHighSeqNo bo
 		break
 	}
 	return
+
 }
+
 
 func (bucket CouchbaseBucket) GetMaxVbno() (uint16, error) {
 
@@ -492,15 +525,16 @@ func GetBucket(spec BucketSpec, callback sgbucket.BucketNotifyFn) (bucket Bucket
 		}
 		Logf("%v Opening Couchbase database %s on <%s>%s", spec.CouchbaseDriver, spec.BucketName, spec.Server, suffix)
 
-		if spec.CouchbaseDriver == GoCB {
+
+		switch spec.CouchbaseDriver {
+		case GoCB, GoCBCustomSGTranscoder:
 			bucket, err = GetCouchbaseBucketGoCB(spec)
-		} else if spec.CouchbaseDriver == GoCBGoCouchbaseHybrid {
-			bucket, err = NewCouchbaseBucketGoCBGoCouchbaseHybrid(spec, callback)
-		} else if spec.CouchbaseDriver == GoCouchbase {
+		case GoCouchbase:
 			bucket, err = GetCouchbaseBucket(spec, callback)
-		} else {
+		default:
 			panic(fmt.Sprintf("Unexpected CouchbaseDriver: %v", spec.CouchbaseDriver))
 		}
+
 
 	}
 

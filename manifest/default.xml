@@ -33,7 +33,7 @@
 
   
   <!-- Sync Gateway Accel-->
-  <project groups="notdefault,sg-accel" name="sync-gateway-accel" path="godeps/src/github.com/couchbaselabs/sync-gateway-accel" remote="couchbaselabs_private" revision="aa3434c224bd4e7cde0a98b99f51326094e6a653"/>
+  <project groups="notdefault,sg-accel" name="sync-gateway-accel" path="godeps/src/github.com/couchbaselabs/sync-gateway-accel" remote="couchbaselabs_private" revision="2f91c27f5985b9bd16c1ed3e5d5cc215d4e92b97"/>
 
   
   <!-- Dependencies specific to Sync Gateway Accel-->
@@ -55,7 +55,7 @@
 
   <project name="sync_gateway_admin_ui" path="godeps/src/github.com/couchbaselabs/sync_gateway_admin_ui" revision="4195073f3c64830ca5bad14016dc5de732211c32" remote="couchbaselabs"/>
 
-  <project name="walrus" path="godeps/src/github.com/couchbaselabs/walrus" remote="couchbaselabs" revision="b0f96cf430707aff15d3f63d8a76fcd0a7d43c94"/>
+  <project name="walrus" path="godeps/src/github.com/couchbaselabs/walrus" remote="couchbaselabs" revision="65bd5e517ced758c8269434667cc69b9ef65f340"/>
 
   <project name="go-couchbase" path="godeps/src/github.com/couchbase/go-couchbase" remote="couchbase" revision="e324a422a750407f19950152cf6a7dd06460d48b"/>
 
@@ -69,7 +69,7 @@
 
   <project name="gomemcached" path="godeps/src/github.com/couchbase/gomemcached" remote="couchbase" revision="19e1a1d5fea2e65a51c2a3025102937fd9de2c1e"/>
 
-  <project name="sg-bucket" path="godeps/src/github.com/couchbase/sg-bucket" remote="couchbase" revision="51feaacbc82c08c2f091dc94b57e12912ab7fb40"/>
+  <project name="sg-bucket" path="godeps/src/github.com/couchbase/sg-bucket" remote="couchbase" revision="895e05d9355a3f0161341420b210054fab9a8e35"/>
 
   <project name="go-bindata-assetfs" path="godeps/src/github.com/elazarl/go-bindata-assetfs" remote="elazarl" revision="d5cac425555ca5cf00694df246e04f05e6a55150"/>
 

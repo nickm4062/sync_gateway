@@ -26,6 +26,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"github.com/couchbaselabs/walrus"
 )
 
 const (
@@ -512,10 +513,6 @@ func GetCouchbaseBucketFromBaseBucket(baseBucket Bucket) (bucket CouchbaseBucket
 		return baseBucket, nil
 	case *CouchbaseBucket:
 		return *baseBucket, nil
-	case CouchbaseBucketGoCBGoCouchbaseHybrid:
-		return *baseBucket.GoCouchbaseBucket, nil
-	case *CouchbaseBucketGoCBGoCouchbaseHybrid:
-		return *baseBucket.GoCouchbaseBucket, nil
 	default:
 		return CouchbaseBucket{}, fmt.Errorf("baseBucket %v was not a CouchbaseBucket.  Was type: %T", baseBucket, baseBucket)
 	}
@@ -523,10 +520,6 @@ func GetCouchbaseBucketFromBaseBucket(baseBucket Bucket) (bucket CouchbaseBucket
 
 func GetGoCBBucketFromBaseBucket(baseBucket Bucket) (bucket CouchbaseBucketGoCB, err error) {
 	switch baseBucket := baseBucket.(type) {
-	case CouchbaseBucketGoCBGoCouchbaseHybrid:
-		return *baseBucket.CouchbaseBucketGoCB, nil
-	case *CouchbaseBucketGoCBGoCouchbaseHybrid:
-		return *baseBucket.CouchbaseBucketGoCB, nil
 	case *CouchbaseBucketGoCB:
 		return *baseBucket, nil
 	case CouchbaseBucketGoCB:
@@ -535,3 +528,13 @@ func GetGoCBBucketFromBaseBucket(baseBucket Bucket) (bucket CouchbaseBucketGoCB,
 		return CouchbaseBucketGoCB{}, fmt.Errorf("baseBucket %v was not a CouchbaseBucketGoCB.  Was type: %T", baseBucket, baseBucket)
 	}
 }
+
+func GetWalrusBucketFromBaseBucket(baseBucket Bucket) (bucket *walrus.Bucket, err error) {
+	switch baseBucket := baseBucket.(type) {
+	case *walrus.Bucket:
+		return baseBucket, nil
+	default:
+		return nil, fmt.Errorf("baseBucket %v was not a *Bucket.  Was type: %T", baseBucket, baseBucket)
+	}
+}
+
