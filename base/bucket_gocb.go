@@ -1485,7 +1485,7 @@ func (bucket CouchbaseBucketGoCB) Refresh() error {
 
 // TODO: Change to StartMutationFeed
 func (bucket CouchbaseBucketGoCB) StartTapFeed(args sgbucket.TapArguments) (sgbucket.TapFeed, error) {
-	switch bucket.spec.FeedType {
+	switch strings.ToLower(bucket.spec.FeedType) {
 	case DcpFeedType:
 		return StartDCP_CBDatasourceFeed(args, bucket.spec, bucket)
 

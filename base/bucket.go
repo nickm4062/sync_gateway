@@ -227,7 +227,7 @@ func (bucket CouchbaseBucket) View(ddoc, name string, params map[string]interfac
 func (bucket CouchbaseBucket) StartTapFeed(args sgbucket.TapArguments) (sgbucket.TapFeed, error) {
 
 	// Uses DCP by default, unless TAP is explicitly specified
-	switch bucket.spec.FeedType {
+	switch strings.ToLower(bucket.spec.FeedType) {
 
 	case TapFeedType:
 		return bucket.StartCouchbaseTapFeed(args)
@@ -529,7 +529,7 @@ func GetBucket(spec BucketSpec, callback sgbucket.BucketNotifyFn) (bucket Bucket
 
 		switch spec.CouchbaseDriver {
 		case GoCB, GoCBCustomSGTranscoder:
-			if spec.FeedType == TapFeedType {
+			if strings.ToLower(spec.FeedType) == TapFeedType {
 				Warn("Cannot use TAP feed in conjunction with GoCB driver, reverting to go-couchbase")
 				bucket, err = GetCouchbaseBucket(spec, callback)
 			} else {

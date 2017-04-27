@@ -210,7 +210,7 @@ func (sc *ServerContext) AllDatabases() map[string]*db.DatabaseContext {
 func (sc *ServerContext) numIndexWriters() (numIndexWriters, numIndexNonWriters int) {
 
 	for _, dbContext := range sc.databases_ {
-		if dbContext.BucketSpec.FeedType != base.DcpShardFeedType {
+		if strings.ToLower(dbContext.BucketSpec.FeedType) != base.DcpShardFeedType {
 			continue
 		}
 		if dbContext.Options.IndexOptions.Writer {
