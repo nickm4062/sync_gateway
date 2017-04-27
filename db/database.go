@@ -212,45 +212,42 @@ func NewDatabaseContext(dbName string, bucket base.Bucket, autoImport bool, opti
 	// If not using channel index or using channel index and tracking docs, start the tap feed
 	if options.IndexOptions == nil || options.TrackDocs {
 		if err = context.tapListener.Start(bucket, options.TrackDocs, func(bucket string, err error) {
-			msg := fmt.Sprintf("%v Mutation (TAP/DCP) feed error: %v.  Ignoring", bucket, err)
+			msg := fmt.Sprintf("%v lost Mutation (TAP/DCP) feed due to error: %v, taking offline", bucket, err)
 			base.Warn(msg)
+			errTakeDbOffline := context.TakeDbOffline(msg)
+			if errTakeDbOffline == nil {
 
-			//msg := fmt.Sprintf("%v lost Mutation (TAP/DCP) feed due to error: %v, taking offline", bucket, err)
-			//base.Warn(msg)
-			//errTakeDbOffline := context.TakeDbOffline(msg)
-			//if errTakeDbOffline == nil {
-			//
-			//	//start a retry loop to pick up tap feed again backing off double the delay each time
-			//	worker := func() (shouldRetry bool, err error, value interface{}) {
-			//		//If DB is going online via an admin request Bucket will be nil
-			//		if context.Bucket != nil {
-			//			err = context.Bucket.Refresh()
-			//		} else {
-			//			err = base.HTTPErrorf(http.StatusPreconditionFailed, "Database %q, bucket is not available", dbName)
-			//			return false, err, nil
-			//		}
-			//		return err != nil, err, nil
-			//	}
-			//
-			//	sleeper := base.CreateDoublingSleeperFunc(
-			//		20, //MaxNumRetries
-			//		5,  //InitialRetrySleepTimeMS
-			//	)
-			//
-			//	description := fmt.Sprintf("Attempt reconnect to lost Mutation (TAP/DCP) Feed for : %v", context.Name)
-			//	err, _ := base.RetryLoop(description, worker, sleeper)
-			//
-			//	if err == nil {
-			//		base.LogTo("CRUD", "Connection to Mutation (TAP/DCP) feed for %v re-established, bringing DB back online", context.Name)
-			//
-			//		// TODO: why does this wait for so long here?
-			//		// timer := time.NewTimer(time.Duration(10) * time.Second)
-			//		// <-timer.C
-			//
-			//		online(context)
-			//
-			//	}
-			//}
+				//start a retry loop to pick up tap feed again backing off double the delay each time
+				worker := func() (shouldRetry bool, err error, value interface{}) {
+					//If DB is going online via an admin request Bucket will be nil
+					if context.Bucket != nil {
+						err = context.Bucket.Refresh()
+					} else {
+						err = base.HTTPErrorf(http.StatusPreconditionFailed, "Database %q, bucket is not available", dbName)
+						return false, err, nil
+					}
+					return err != nil, err, nil
+				}
+
+				sleeper := base.CreateDoublingSleeperFunc(
+					20, //MaxNumRetries
+					5,  //InitialRetrySleepTimeMS
+				)
+
+				description := fmt.Sprintf("Attempt reconnect to lost Mutation (TAP/DCP) Feed for : %v", context.Name)
+				err, _ := base.RetryLoop(description, worker, sleeper)
+
+				if err == nil {
+					base.LogTo("CRUD", "Connection to Mutation (TAP/DCP) feed for %v re-established, bringing DB back online", context.Name)
+
+					// TODO: why does this wait for so long here?
+					// timer := time.NewTimer(time.Duration(10) * time.Second)
+					// <-timer.C
+
+					online(context)
+
+				}
+			}
 
 
 			// TODO: invoke the same callback function from there as well, to pick up the auto-online handling
