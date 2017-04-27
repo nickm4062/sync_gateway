@@ -388,8 +388,8 @@ func (sc *ServerContext) _getOrAddDatabaseFromConfig(config *DbConfig, useExisti
 					base.LogTo("CRUD", "Connection to Mutation (TAP/DCP) feed for %v re-established, bringing DB back online", dc.Name)
 
 					// TODO: why does this wait so long here?
-					timer := time.NewTimer(time.Duration(10) * time.Second)
-					<-timer.C
+					// timer := time.NewTimer(time.Duration(10) * time.Second)
+					// <-timer.C
 
 					sc.TakeDbOnline(dc)
 				}
