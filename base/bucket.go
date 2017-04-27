@@ -526,9 +526,16 @@ func GetBucket(spec BucketSpec, callback sgbucket.BucketNotifyFn) (bucket Bucket
 		Logf("%v Opening Couchbase database %s on <%s>%s", spec.CouchbaseDriver, spec.BucketName, spec.Server, suffix)
 
 
+
 		switch spec.CouchbaseDriver {
 		case GoCB, GoCBCustomSGTranscoder:
-			bucket, err = GetCouchbaseBucketGoCB(spec)
+			if spec.FeedType == TapFeedType {
+				Warn("Cannot use TAP feed in conjunction with GoCB driver, reverting to go-couchbase")
+				bucket, err = GetCouchbaseBucket(spec, callback)
+			} else {
+				bucket, err = GetCouchbaseBucketGoCB(spec)
+			}
+
 		case GoCouchbase:
 			bucket, err = GetCouchbaseBucket(spec, callback)
 		default:
