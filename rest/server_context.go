@@ -354,47 +354,50 @@ func (sc *ServerContext) _getOrAddDatabaseFromConfig(config *DbConfig, useExisti
 		// TODO: document the fact that gocb will never get into this state.  We only use go-couchbase for dcp
 
 
-		msg := fmt.Sprintf("%v lost Mutation (TAP/DCP) feed due to error: %v, taking offline", bucket, err)
-
+		msg := fmt.Sprintf("%v Mutation (TAP/DCP) feed error: %v.  Ignoring", bucket, err)
 		base.Warn(msg)
 
-
-		if dc := sc.databases_[dbName]; dc != nil {
-
-			err := dc.TakeDbOffline(msg)
-			if err == nil {
-
-				//start a retry loop to pick up tap feed again backing off double the delay each time
-				worker := func() (shouldRetry bool, err error, value interface{}) {
-					//If DB is going online via an admin request Bucket will be nil
-					if dc.Bucket != nil {
-						err = dc.Bucket.Refresh()
-					} else {
-						err = base.HTTPErrorf(http.StatusPreconditionFailed, "Database %q, bucket is not available", dbName)
-						return false, err, nil
-					}
-					return err != nil, err, nil
-				}
-
-				sleeper := base.CreateDoublingSleeperFunc(
-					20, //MaxNumRetries
-					5,  //InitialRetrySleepTimeMS
-				)
-
-				description := fmt.Sprintf("Attempt reconnect to lost Mutation (TAP/DCP) Feed for : %v", dc.Name)
-				err, _ := base.RetryLoop(description, worker, sleeper)
-
-				if err == nil {
-					base.LogTo("CRUD", "Connection to Mutation (TAP/DCP) feed for %v re-established, bringing DB back online", dc.Name)
-
-					// TODO: why does this wait so long here?
-					// timer := time.NewTimer(time.Duration(10) * time.Second)
-					// <-timer.C
-
-					sc.TakeDbOnline(dc)
-				}
-			}
-		}
+		//msg := fmt.Sprintf("%v lost Mutation (TAP/DCP) feed due to error: %v, taking offline", bucket, err)
+		//
+		//base.Warn(msg)
+		//
+		//
+		//if dc := sc.databases_[dbName]; dc != nil {
+		//
+		//	err := dc.TakeDbOffline(msg)
+		//	if err == nil {
+		//
+		//		//start a retry loop to pick up tap feed again backing off double the delay each time
+		//		worker := func() (shouldRetry bool, err error, value interface{}) {
+		//			//If DB is going online via an admin request Bucket will be nil
+		//			if dc.Bucket != nil {
+		//				err = dc.Bucket.Refresh()
+		//			} else {
+		//				err = base.HTTPErrorf(http.StatusPreconditionFailed, "Database %q, bucket is not available", dbName)
+		//				return false, err, nil
+		//			}
+		//			return err != nil, err, nil
+		//		}
+		//
+		//		sleeper := base.CreateDoublingSleeperFunc(
+		//			20, //MaxNumRetries
+		//			5,  //InitialRetrySleepTimeMS
+		//		)
+		//
+		//		description := fmt.Sprintf("Attempt reconnect to lost Mutation (TAP/DCP) Feed for : %v", dc.Name)
+		//		err, _ := base.RetryLoop(description, worker, sleeper)
+		//
+		//		if err == nil {
+		//			base.LogTo("CRUD", "Connection to Mutation (TAP/DCP) feed for %v re-established, bringing DB back online", dc.Name)
+		//
+		//			// TODO: why does this wait so long here?
+		//			// timer := time.NewTimer(time.Duration(10) * time.Second)
+		//			// <-timer.C
+		//
+		//			sc.TakeDbOnline(dc)
+		//		}
+		//	}
+		//}
 	})
 
 	if err != nil {
