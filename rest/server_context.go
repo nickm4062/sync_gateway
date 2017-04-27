@@ -703,6 +703,11 @@ func (sc *ServerContext) startShadowing(dbcontext *db.DatabaseContext, shadow *S
 		}
 	}
 
+	if strings.ToLower(shadow.FeedType) != base.TapFeedType {
+		return fmt.Errorf("Bucket Shadowing only works with the TAP feed type. " +
+			"Please add feed_type=TAP and retry.  See https://github.com/couchbase/sync_gateway/issues/2502")
+	}
+
 	spec := base.BucketSpec{
 		Server:          *shadow.Server,
 		PoolName:        "default",
