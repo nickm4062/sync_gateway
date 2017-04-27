@@ -381,13 +381,16 @@ func (sc *ServerContext) _getOrAddDatabaseFromConfig(config *DbConfig, useExisti
 					5,  //InitialRetrySleepTimeMS
 				)
 
-				description := fmt.Sprintf("Attempt reconnect to lost TAP Feed for : %v", dc.Name)
+				description := fmt.Sprintf("Attempt reconnect to lost Mutation (TAP/DCP) Feed for : %v", dc.Name)
 				err, _ := base.RetryLoop(description, worker, sleeper)
 
 				if err == nil {
-					base.LogTo("CRUD", "Connection to TAP feed for %v re-established, bringing DB back online", dc.Name)
+					base.LogTo("CRUD", "Connection to Mutation (TAP/DCP) feed for %v re-established, bringing DB back online", dc.Name)
+
+					// TODO: why does this wait so long here?
 					timer := time.NewTimer(time.Duration(10) * time.Second)
 					<-timer.C
+
 					sc.TakeDbOnline(dc)
 				}
 			}

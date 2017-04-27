@@ -239,6 +239,8 @@ func NewDatabaseContext(dbName string, bucket base.Bucket, autoImport bool, opti
 
 				if err == nil {
 					base.LogTo("CRUD", "Connection to Mutation (TAP/DCP) feed for %v re-established, bringing DB back online", context.Name)
+
+					// TODO: why does this wait for so long here?
 					timer := time.NewTimer(time.Duration(10) * time.Second)
 					<-timer.C
 
