@@ -864,6 +864,7 @@ func (db *Database) updateDoc(docid string, allowImport bool, expiry uint32, cal
 		db.revisionCache.Put(body, encodeRevisions(history), revChannels)
 
 		// Raise event if this is not an echo from a shadow bucket
+		base.LogTo("ANDY","newRevID = %v, doc.UpstreamRev = %v",newRevID,doc.UpstreamRev)
 		if newRevID != doc.UpstreamRev {
 			if db.EventMgr.HasHandlerForEvent(DocumentChange) {
 				db.EventMgr.RaiseDocumentChangeEvent(body, oldBodyJSON, revChannels)
