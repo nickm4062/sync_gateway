@@ -52,6 +52,55 @@ func TestTransformBucketCredentials(t *testing.T) {
 
 }
 
+// Attempt to reproduce: https://github.com/couchbase/sync_gateway/issues/2514
+// Error processing DCP stream: EOF -- base.(*DCPReceiver).OnError() at dcp_feed.go
+func TestCBDatasourceConnectTwoBuckets(t *testing.T) {
+
+	var serverURL = "http://192.168.33.10:8091"
+
+	var poolName = "default"
+
+	bucketNames := []string{
+		"data-bucket-3",
+		"data-bucket-4",
+	}
+
+	gocbBuckets := openGoCBConnections(serverURL, poolName, bucketNames)
+	dataBucket3 := gocbBuckets[0]
+	dataBucket4 := gocbBuckets[1]
+
+	log.Printf("Created GoCB connections to %v and %v", dataBucket3, dataBucket4)
+
+	createTestData(gocbBuckets)
+
+	dataSources := openCBDataSources(serverURL, poolName, bucketNames)
+	dataSource3 := dataSources[0]
+	dataSource4 := dataSources[1]
+
+	for {
+		log.Printf("bds0 stats -----------------------------")
+		reportStats(dataSource3, true)
+		log.Printf("bds1 stats -----------------------------")
+		reportStats(dataSource4, true)
+
+		time.Sleep(30 * time.Second)
+
+	}
+
+}
+
+
+func createTestData(gocbBuckets []*gocb.Bucket) {
+
+	dataBucket3 := gocbBuckets[0]
+	dataBucket4 := gocbBuckets[1]
+	dataBucket3.Insert("_sync:syncdata", map[string]interface{}{"Sync": ""}, 0)
+	dataBucket4.Insert("_sync:syncdata", map[string]interface{}{"Sync": ""}, 0)
+
+
+
+}
+
 // ----------------------------------------------------------------
 var verbose = 2
 
@@ -169,42 +218,7 @@ func (a authUserPswd) GetCredentials() (string, string, string) {
 	return a.Username, "", ""
 }
 
-// Attempt to reproduce: https://github.com/couchbase/sync_gateway/issues/2514
-// Error processing DCP stream: EOF -- base.(*DCPReceiver).OnError() at dcp_feed.go
-func TestCBDatasourceConnectTwoBuckets(t *testing.T) {
 
-	var serverURL = "http://192.168.33.10:8091"
-
-	var poolName = "default"
-
-	bucketNames := []string{
-		"data-bucket-3",
-		"data-bucket-4",
-	}
-
-	gocbBuckets := openGoCBConnections(serverURL, poolName, bucketNames)
-	dataBucket3 := gocbBuckets[0]
-	dataBucket4 := gocbBuckets[1]
-
-	log.Printf("Created GoCB connections to %v and %v", dataBucket3, dataBucket4)
-
-	// create some users, etc
-
-	dataSources := openCBDataSources(serverURL, poolName, bucketNames)
-	dataSource3 := dataSources[0]
-	dataSource4 := dataSources[1]
-
-	for {
-		log.Printf("bds0 stats -----------------------------")
-		reportStats(dataSource3, true)
-		log.Printf("bds1 stats -----------------------------")
-		reportStats(dataSource4, true)
-
-		time.Sleep(30 * time.Second)
-
-	}
-
-}
 
 func openGoCBConnections(serverURL, poolName string, bucketNames []string) (gocbBuckets []*gocb.Bucket) {
 
