@@ -190,7 +190,19 @@ func TestCBDatasourceConnectTwoBuckets(t *testing.T) {
 
 	// create some users, etc
 
-	openCBDataSources(serverURL, poolName, bucketNames)
+	dataSources := openCBDataSources(serverURL, poolName, bucketNames)
+	dataSource3 := dataSources[0]
+	dataSource4 := dataSources[1]
+
+	for {
+		log.Printf("bds0 stats -----------------------------")
+		reportStats(dataSource3, true)
+		log.Printf("bds1 stats -----------------------------")
+		reportStats(dataSource4, true)
+
+		time.Sleep(30 * time.Second)
+
+	}
 
 }
 
@@ -220,7 +232,7 @@ func openGoCBConnections(serverURL, poolName string, bucketNames []string) (gocb
 
 }
 
-func openCBDataSources(serverURL, poolName string, bucketNames []string) {
+func openCBDataSources(serverURL, poolName string, bucketNames []string) (bucketDataSources []cbdatasource.BucketDataSource) {
 
 	var bucketUUID = ""
 
@@ -239,7 +251,6 @@ func openCBDataSources(serverURL, poolName string, bucketNames []string) {
 	}
 
 	serverURLs := []string{serverURL}
-	bucketDataSources := []cbdatasource.BucketDataSource{}
 
 	for _, bucketName := range bucketNames {
 		var auth couchbase.AuthHandler = authUserPswd{
@@ -269,17 +280,9 @@ func openCBDataSources(serverURL, poolName string, bucketNames []string) {
 		bucketDataSources = append(bucketDataSources, bds)
 	}
 
-	go func() {
-		for {
-			log.Printf("bds0 stats -----------------------------")
-			reportStats(bucketDataSources[0], true)
-			log.Printf("bds1 stats -----------------------------")
-			reportStats(bucketDataSources[1], true)
+	return bucketDataSources
 
-			time.Sleep(30 * time.Second)
 
-		}
-	}()
 
 
 
