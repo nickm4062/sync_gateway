@@ -16,6 +16,7 @@ import (
 	"github.com/couchbase/go-couchbase/cbdatasource"
 	"github.com/couchbase/gomemcached"
 	"github.com/couchbaselabs/go.assert"
+	"github.com/couchbase/gocb"
 )
 
 // func TransformBucketCredentials(inputUsername, inputPassword, inputBucketname string) (username, password, bucketname string) {
@@ -160,14 +161,13 @@ func (r *ExampleReceiver) updateSeq(vbucketId uint16, seq uint64) {
 
 // ----------------------------------------------------------------
 
-type authUserPswd struct{
+type authUserPswd struct {
 	Username string
 }
 
 func (a authUserPswd) GetCredentials() (string, string, string) {
 	return a.Username, "", ""
 }
-
 
 // Attempt to reproduce: https://github.com/couchbase/sync_gateway/issues/2514
 // Error processing DCP stream: EOF -- base.(*DCPReceiver).OnError() at dcp_feed.go
@@ -177,11 +177,50 @@ func TestCBDatasourceConnectTwoBuckets(t *testing.T) {
 
 	var poolName = "default"
 
-
 	bucketNames := []string{
-	"data-bucket-3",
-	"data-bucket-4",
+		"data-bucket-3",
+		"data-bucket-4",
 	}
+
+	gocbBuckets := openGoCBConnections(serverURL, poolName, bucketNames)
+	dataBucket3 := gocbBuckets[0]
+	dataBucket4 := gocbBuckets[1]
+
+	log.Printf("Created GoCB connections to %v and %v", dataBucket3, dataBucket4)
+
+	// create some users, etc
+
+	openCBDataSources(serverURL, poolName, bucketNames)
+
+}
+
+func openGoCBConnections(serverURL, poolName string, bucketNames []string) (gocbBuckets []*gocb.Bucket) {
+
+
+	cluster, err := gocb.Connect(serverURL)
+	if err != nil {
+		log.Printf("Error connecting to cluster. err: %v", err)
+		panic("Error connecting to cluster")
+	}
+
+	for _, bucketName := range bucketNames {
+		goCBBucket, err := cluster.OpenBucket(bucketName, "")
+		if err != nil {
+			log.Printf("Error connecting to bucket. err: %v", err)
+			panic("Error connecting to bucket")
+
+		}
+
+		goCBBucket.SetTranscoder(SGTranscoder{})
+		gocbBuckets = append(gocbBuckets, goCBBucket)
+
+	}
+
+	return gocbBuckets
+
+}
+
+func openCBDataSources(serverURL, poolName string, bucketNames []string) {
 
 	var bucketUUID = ""
 
@@ -230,16 +269,19 @@ func TestCBDatasourceConnectTwoBuckets(t *testing.T) {
 		bucketDataSources = append(bucketDataSources, bds)
 	}
 
+	go func() {
+		for {
+			log.Printf("bds0 stats -----------------------------")
+			reportStats(bucketDataSources[0], true)
+			log.Printf("bds1 stats -----------------------------")
+			reportStats(bucketDataSources[1], true)
+
+			time.Sleep(30 * time.Second)
+
+		}
+	}()
 
 
-	for {
-		time.Sleep(1000 * time.Millisecond)
-		// log.Printf("bds0 stats -----------------------------")
-		// reportStats(bucketDataSources[0], true)
-		// log.Printf("bds1 stats -----------------------------")
-		// reportStats(bucketDataSources[1], true)
-
-	}
 
 }
 
